@@ -40,5 +40,3 @@ jobs:
         if: github.ref_type == 'tag'
         with:
           files: dist/*.exe
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
