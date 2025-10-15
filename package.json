@@ -1,0 +1,49 @@
+{
+  "name": "photofinder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder",
+    "pack": "electron-builder --dir",
+    "lint": "echo \"No lint step configured\"",
+    "parse:demo": "node scripts/checkParser.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.photofinder.app",
+    "productName": "PhotoFinder",
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ]
+    }
+  },
+  "devDependencies": {
+    "electron": "^38.2.2",
+    "electron-builder": "^26.0.12"
+  }
+}

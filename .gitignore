@@ -1,0 +1,4 @@
+node_modules/
+dist/
+*.log
+test_data/output_photos/

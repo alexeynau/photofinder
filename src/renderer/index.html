@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self';"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PhotoFinder</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <div class="branding">
+          <div class="branding__icon">PF</div>
+          <div class="branding__text">
+            <h1>PhotoFinder</h1>
+            <p>Помогает быстро собрать нужные фотографии</p>
+          </div>
+        </div>
+      </header>
+
+      <div class="layout-grid">
+        <section class="panel panel--inputs">
+          <h2>Исходные данные</h2>
+          <form id="controlForm" autocomplete="off">
+            <div class="field">
+              <label for="sourceDir">Папка с фотографиями</label>
+              <div class="field__picker">
+                <input
+                  id="sourceDir"
+                  name="sourceDir"
+                  type="text"
+                  placeholder="Выберите папку-источник"
+                  readonly
+                />
+                <button type="button" data-action="pick-source">Выбрать</button>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="targetDir">Папка для сохранения</label>
+              <div class="field__picker">
+                <input
+                  id="targetDir"
+                  name="targetDir"
+                  type="text"
+                  placeholder="Будет создана автоматически"
+                  readonly
+                />
+                <button type="button" data-action="pick-target">Выбрать</button>
+              </div>
+              <small class="field__hint">
+                Если не выбирать вручную, файлы сохранятся в подпапку «Выбор» внутри исходной директории.
+              </small>
+            </div>
+
+            <div class="field compact-field">
+              <div>
+                <label for="mode">Режим обработки</label>
+                <select id="mode" name="mode">
+                  <option value="copy">Копировать файлы</option>
+                  <option value="move">Перемещать файлы</option>
+                  <option value="simulate">Только проверить (без изменений)</option>
+                </select>
+              </div>
+              <label class="checkbox toggle">
+                <input
+                  type="checkbox"
+                  id="useSmartParser"
+                  name="useSmartParser"
+                  checked
+                />
+                <span>
+                  Умный парсер
+                  <small>фильтрует даты, телефоны и служебные номера</small>
+                </span>
+              </label>
+            </div>
+
+            <div class="field field--textarea">
+              <label for="messageEditor">Текст с номерами</label>
+              <div
+                id="messageEditor"
+                class="text-editor"
+                contenteditable="true"
+                data-placeholder="Вставьте сюда сообщение или список номеров"
+                spellcheck="false"
+              ></div>
+              <textarea id="message" name="message" hidden></textarea>
+              <small class="field__hint">
+                Подсветка показывает номера, которые найдёт выбранный парсер.
+              </small>
+            </div>
+
+            <div class="actions">
+              <button type="submit" class="primary">Запустить обработку</button>
+              <button type="reset" class="ghost">Очистить форму</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel panel--results">
+          <div class="panel__header">
+            <h2>Отчёт</h2>
+            <div class="run-mode" id="runMode"></div>
+          </div>
+
+          <div class="results-grid">
+            <div>
+              <h3>Найденные файлы</h3>
+              <ul id="processedList" class="result-list"></ul>
+            </div>
+            <div>
+              <h3>Не найдено</h3>
+              <ul id="missingList" class="result-list result-list--warning"></ul>
+            </div>
+          </div>
+
+          <div class="status" id="statusBlock">
+            <div class="status__icon" id="statusIcon">⏳</div>
+            <div>
+              <p id="statusMessage">Готов к запуску.</p>
+              <small id="statusDetails"></small>
+            </div>
+          </div>
+
+          <div class="post-actions">
+            <button id="openTargetBtn" type="button" disabled>
+              Открыть папку назначения
+            </button>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script src="./renderer.js"></script>
+  </body>
+</html>
