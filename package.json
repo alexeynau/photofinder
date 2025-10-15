@@ -6,7 +6,7 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "electron-builder",
+    "build": "electron-builder --publish never",
     "pack": "electron-builder --dir",
     "lint": "echo \"No lint step configured\"",
     "parse:demo": "node scripts/checkParser.js"
