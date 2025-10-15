@@ -27,6 +27,7 @@
 
 ## GitHub Actions
 - Workflow `.github/workflows/release-windows.yml` собирает Windows‑инсталлятор с помощью `electron-builder` на `windows-latest`.
+- Перед пушем обновите lock-файл (`npm install`) и закоммитьте изменения, чтобы `npm ci` в CI прошёл без «package.json <> package-lock.json mismatch».
 - Запуск: создайте и запушьте тег вида `vX.Y.Z` (`git tag v1.0.0 && git push origin v1.0.0`).
 - Готовый `.exe` загружается как артефакт и прикладывается к черновому релизу. Для публикации достаточно отредактировать релиз в GitHub UI.
 
