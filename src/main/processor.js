@@ -17,30 +17,63 @@ const ensureDirectoryExists = async (dirPath) => {
   await fsp.mkdir(dirPath, { recursive: true });
 };
 
+const sanitizePrefix = (prefix) =>
+  typeof prefix === 'string' ? prefix.trim() : '';
+
+const escapeRegex = (value) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+const normalizeFileId = (digits) => String(digits).padStart(4, '0');
+
 const buildFilePattern = (prefix = DEFAULT_PREFIX) => {
-  if (!prefix) {
-    return /^(\d{4})\.(.+)$/i;
+  const normalizedPrefix = sanitizePrefix(prefix);
+  const trailingDigits = '(\\d{3,4})(?=(?:[^0-9()]|\\(\\d+\\))*$)';
+
+  if (!normalizedPrefix) {
+    return new RegExp(trailingDigits, 'i');
   }
-  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`^${escaped}_(\\d{4})\\.(.+)$`, 'i');
+
+  const escaped = escapeRegex(normalizedPrefix);
+  return new RegExp(
+    `(?:^|[\\s_\\-])${escaped}[\\s_\\-]*${trailingDigits}`,
+    'i'
+  );
+};
+
+const extractIdFromFileName = (fileName, prefix = DEFAULT_PREFIX) => {
+  const { name: baseName } = path.parse(fileName);
+  const prefixPattern = buildFilePattern(prefix);
+
+  if (prefixPattern) {
+    const matchWithPrefix = prefixPattern.exec(baseName);
+    if (matchWithPrefix && matchWithPrefix[1]) {
+      return normalizeFileId(matchWithPrefix[1]);
+    }
+  }
+
+  const fallbackPattern = buildFilePattern('');
+  const fallbackMatch = fallbackPattern.exec(baseName);
+  if (fallbackMatch && fallbackMatch[1]) {
+    return normalizeFileId(fallbackMatch[1]);
+  }
+
+  return null;
 };
 
 const indexSourceFiles = async (sourceDir, prefix = DEFAULT_PREFIX) => {
   const entries = await fsp.readdir(sourceDir, { withFileTypes: true });
   const index = new Map();
-  const filePattern = buildFilePattern(prefix);
 
   for (const entry of entries) {
     if (!entry.isFile()) {
       continue;
     }
 
-    const match = entry.name.match(filePattern);
-    if (!match) {
+    const id = extractIdFromFileName(entry.name, prefix);
+    if (!id) {
       continue;
     }
 
-    const [, id] = match;
     const absolutePath = path.join(sourceDir, entry.name);
     const info = {
       id,
