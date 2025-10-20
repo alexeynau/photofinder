@@ -78,7 +78,35 @@ const getPlainText = () => {
     return '';
   }
 
-  return messageEditor.textContent.replace(/\r/g, '');
+  const parts = [];
+  const walker = document.createTreeWalker(
+    messageEditor,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        if (node.nodeName === 'BR') {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        return NodeFilter.FILTER_SKIP;
+      },
+    }
+  );
+
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    if (node.nodeType === Node.TEXT_NODE) {
+      parts.push(node.textContent.replace(/\r/g, ''));
+      continue;
+    }
+    if (node.nodeName === 'BR') {
+      parts.push('\n');
+    }
+  }
+
+  return parts.join('');
 };
 
 const setEditorHtml = (html) => {
@@ -87,6 +115,82 @@ const setEditorHtml = (html) => {
     messageEditor.innerHTML = html;
   }
   applyingHighlight = false;
+};
+
+const unwrapHighlightAncestor = (node) => {
+  if (!node || node.nodeType !== Node.TEXT_NODE) {
+    return;
+  }
+
+  const element = node.parentElement?.closest('.text-highlight');
+  if (!element || !element.parentNode) {
+    return;
+  }
+
+  const parent = element.parentNode;
+  const reference = element.nextSibling;
+
+  while (element.firstChild) {
+    parent.insertBefore(element.firstChild, reference);
+  }
+
+  parent.removeChild(element);
+};
+
+const insertTextAtSelection = (text) => {
+  const selection = window.getSelection();
+  if (!selection || selection.rangeCount === 0) {
+    return;
+  }
+
+  const range = selection.getRangeAt(0);
+  range.deleteContents();
+
+  const fragments = text.split('\n');
+  const nodes = [];
+
+  fragments.forEach((part, index) => {
+    if (part.length > 0) {
+      nodes.push(document.createTextNode(part));
+    }
+    if (index < fragments.length - 1) {
+      nodes.push(document.createTextNode('\n'));
+    }
+  });
+
+  if (nodes.length === 0) {
+    nodes.push(document.createTextNode(''));
+  }
+
+  const insertedNodes = [];
+  let lastInserted = null;
+  for (const node of nodes) {
+    range.insertNode(node);
+    insertedNodes.push(node);
+    lastInserted = node;
+    range.setStartAfter(node);
+    range.collapse(true);
+  }
+
+  insertedNodes.forEach((node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      unwrapHighlightAncestor(node);
+    }
+  });
+
+  selection.removeAllRanges();
+  if (lastInserted) {
+    if (lastInserted.nodeType === Node.TEXT_NODE) {
+      range.setStart(
+        lastInserted,
+        Math.max(0, lastInserted.textContent.length)
+      );
+    } else {
+      range.setStartAfter(lastInserted);
+    }
+    range.collapse(true);
+  }
+  selection.addRange(range);
 };
 
 const getCaretOffset = (root) => {
@@ -103,17 +207,10 @@ const getCaretOffset = (root) => {
     return null;
   }
 
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let offset = 0;
-  while (walker.nextNode()) {
-    const node = walker.currentNode;
-    if (node === range.startContainer) {
-      return offset + range.startOffset;
-    }
-    offset += node.textContent.length;
-  }
-
-  return offset;
+  const preCaretRange = range.cloneRange();
+  preCaretRange.selectNodeContents(root);
+  preCaretRange.setEnd(range.startContainer, range.startOffset);
+  return preCaretRange.toString().length;
 };
 
 const setCaretOffset = (root, targetOffset) => {
@@ -121,33 +218,68 @@ const setCaretOffset = (root, targetOffset) => {
     return;
   }
 
-  const clampedOffset = Math.max(0, Math.min(targetOffset, getPlainText().length));
+  const selection = window.getSelection();
+  if (!selection) {
+    return;
+  }
 
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-  let currentOffset = 0;
-  let targetNode = null;
-  let targetNodeOffset = 0;
+  const plainTextLength = getPlainText().length;
+  const clampedOffset = Math.max(0, Math.min(targetOffset, plainTextLength));
+
+  let remaining = clampedOffset;
+  const range = document.createRange();
+  const walker = document.createTreeWalker(
+    root,
+    NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+    {
+      acceptNode: (node) => {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent.length > 0) {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        if (node.nodeName === 'BR') {
+          return NodeFilter.FILTER_ACCEPT;
+        }
+        return NodeFilter.FILTER_SKIP;
+      },
+    }
+  );
 
   while (walker.nextNode()) {
     const node = walker.currentNode;
-    const nodeLength = node.textContent.length;
-    if (currentOffset + nodeLength >= clampedOffset) {
-      targetNode = node;
-      targetNodeOffset = clampedOffset - currentOffset;
-      break;
+    if (node.nodeType === Node.TEXT_NODE) {
+      const length = node.textContent.length;
+      if (remaining <= length) {
+        range.setStart(node, remaining);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
+      remaining -= length;
+      continue;
     }
-    currentOffset += nodeLength;
+
+    if (node.nodeName === 'BR') {
+      if (remaining === 0) {
+        range.setStartAfter(node);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
+      remaining -= 1;
+      if (remaining === 0) {
+        range.setStartAfter(node);
+        range.collapse(true);
+        selection.removeAllRanges();
+        selection.addRange(range);
+        return;
+      }
+    }
   }
 
-  const range = document.createRange();
-  if (!targetNode) {
-    range.setStart(root, root.childNodes.length);
-  } else {
-    range.setStart(targetNode, Math.min(targetNodeOffset, targetNode.textContent.length));
-  }
-  range.collapse(true);
-
-  const selection = window.getSelection();
+  range.selectNodeContents(root);
+  range.collapse(false);
   selection.removeAllRanges();
   selection.addRange(range);
 };
@@ -184,7 +316,7 @@ const buildHighlightedHtml = (text, matches) => {
 
   buffer += escapeHtml(text.slice(cursor));
 
-  return buffer.replace(/\n/g, '<br>');
+  return buffer;
 };
 
 const performHighlightUpdate = async () => {
@@ -287,18 +419,18 @@ messageEditor?.addEventListener('input', () => {
 messageEditor?.addEventListener('paste', (event) => {
   event.preventDefault();
   const text = (event.clipboardData || window.clipboardData).getData('text');
-  const selection = window.getSelection();
-  if (!selection || selection.rangeCount === 0) {
+  insertTextAtSelection(text);
+  updateHiddenMessage();
+  scheduleHighlightUpdate();
+});
+
+messageEditor?.addEventListener('keydown', (event) => {
+  if (event.key !== 'Enter') {
     return;
   }
-  selection.deleteFromDocument();
-  const range = selection.getRangeAt(0);
-  const textNode = document.createTextNode(text);
-  range.insertNode(textNode);
-  range.setStartAfter(textNode);
-  range.collapse(true);
-  selection.removeAllRanges();
-  selection.addRange(range);
+  event.preventDefault();
+  insertTextAtSelection('\n');
+  updateHiddenMessage();
   scheduleHighlightUpdate();
 });
 

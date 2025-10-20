@@ -1,4 +1,4 @@
-const PHONE_PATTERN = /(?:\+?7|8)(?:[\s()-]*\d){10}/g;
+const PHONE_PATTERN = /(?<!\d)(?:\+7|8)(?:[\s()-]*\d){10}(?!\d)/g;
 const DATE_PATTERN =
   /\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b|\b\d{4}[./-]\d{1,2}[./-]\d{1,2}\b/g;
 const CONTRACT_PATTERN = /(?:№|NO\.?|N\.)\s*\d{3,5}/gi;
